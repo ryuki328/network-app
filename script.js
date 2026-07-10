@@ -1,13 +1,22 @@
 /* 実験ネットワーク可視化・L1/L2/L3原因分析シミュレータ */
+// document.querySelector(q)の省略
 const $ = (q) => document.querySelector(q);
+// ネットワーク図を表示するエリアを取得
 const workspace = $('#workspace');
+// 機器同士を結ぶ線（ケーブル）を描画するためのSVGを取得
 const linkLayer = $('#linkLayer');
+// Ping実行時に動く「パケット」のオブジェクト
 const packet = $('#packet');
+// RouterやSwitchなどを作るためのテンプレート
 const template = $('#deviceTemplate');
 
+// 現在のネットワーク全体の状態を保存する
 let state = { devices: [], links: [], selectedId: null, connectMode: false, connectSource: null, protocol: 'OSPF', nextId: 1 };
+// VLAN番号ごとに表示色を決める
 const vlanColors = {10:'v10',20:'v20',30:'v30',40:'v40'};
+// 機器ごとの画像ファイルを指定する
 const img = {router:'assets/router.svg', switch:'assets/switch.svg', pc:'assets/pc.svg'};
+
 
 function uid(prefix){ return `${prefix}${state.nextId++}`; }
 function deviceById(id){ return state.devices.find(d => d.id === id); }
@@ -22,6 +31,7 @@ function routerForSite(site){ return state.devices.find(d=>d.type==='router' && 
 function gatewayFor(pc){ const r = routerForSite(siteOfPc(pc)); return r?.subinterfaces?.[pc.vlan]; }
 function classForVlan(vlan){ return vlanColors[vlan] || 'v10'; }
 
+// 機器を作成する関数
 function createDevice(type, name, x=160, y=120, opts={}){
   const d = { id: uid(type[0]), type, name: name || type.toUpperCase(), x, y, ports: {}, ...opts };
   if(type==='pc') Object.assign(d, {ip:'', mask:'255.255.255.0', gateway:'', vlan:10}, opts);
@@ -32,6 +42,7 @@ function createDevice(type, name, x=160, y=120, opts={}){
   return d;
 }
 
+// ケーブルを接続する関数
 function createLink(a,b,type='access',vlan=null,label=''){
   const exists = state.links.find(l => (l.a===a && l.b===b)||(l.a===b && l.b===a));
   if(exists) return exists;
@@ -41,6 +52,7 @@ function createLink(a,b,type='access',vlan=null,label=''){
   return l;
 }
 
+//サンプルネットワークを作成する
 function loadSample(){
   state = { devices: [], links: [], selectedId: null, connectMode: false, connectSource: null, protocol: 'OSPF', nextId: 1 };
 
@@ -92,8 +104,10 @@ function loadSample(){
   render();
 }
 
+// 画面の更新を行う関数
 function render(){
   $('#protocolChip').textContent = `Routing: ${state.protocol}${state.protocol==='OFF'?'（停止中）':''}`;
+  //「state.protocol==='OFF'?'（停止中）':''」三項演算子: もしOFFなら "(停止中)" そうでなければ ""
   linkLayer.innerHTML = '';
   workspace.querySelectorAll('.device').forEach(e=>e.remove());
   renderLinks();
@@ -176,9 +190,8 @@ function handleDeviceClick(id){
   }
   render();
 }
-
+// ドラッグをできるようにする設定---------------------------------------------
 let drag = null;
-
 function startDrag(e){
   if(state.connectMode) return;
   const id = e.currentTarget.dataset.id;
@@ -202,12 +215,15 @@ function endDrag(){
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', endDrag);
 }
+//----------------------------------------------------------------------
+
 
 workspace.addEventListener('click',()=>{
   state.selectedId=null;
   render();
 });
 
+// 画面左のサイドバーを設定・編集する
 function renderEditor(){
   const box = $('#deviceEditor');
   const d = deviceById(state.selectedId);
@@ -325,6 +341,8 @@ ${mark} 192.168.30.0/24 via 10.0.0.1
 ${mark} 192.168.40.0/24 via 10.0.0.1`;
 }
 
+// L2通信できるか(VLANを考慮しながら通信可能か)を調べる関数
+// ケーブルがあるか→VLANが一致しているか→目的地まで行けるか
 function l2Reachable(startId, endId, vlan, visited=new Set()){
   if(startId===endId) return true;
   visited.add(startId);
@@ -363,6 +381,9 @@ function routeReachable(){
   return state.protocol !== 'OFF' && state.devices.filter(d=>d.type==='router').every(r=>r.routes!==false);
 }
 
+//ping通信の判定
+//コードの流れ：IP設定されている？→同じネットワーク？→VLANは正しい？→Gatewayは正しい？→
+//→Routerまで届く？→R1-R2間は接続されている？→Routingできる？→通信成功
 function validatePing(src,dst){
   if(!src||!dst){
     return {ok:false,layer:'-',reason:'送信元または宛先PCが選択されていません。'};
@@ -442,6 +463,7 @@ function validatePing(src,dst){
   };
 }
 
+// 通信経路を探す
 function pathBetween(s,t,vlan){
   const queue = [[s,[s]]];
   const visited = new Set([s]);
@@ -470,6 +492,7 @@ function pathBetween(s,t,vlan){
   return [];
 }
 
+// パケットアニメーション
 async function animatePath(ids){
   if(!ids || ids.length<2) return;
 
@@ -520,9 +543,11 @@ async function runPing(){
   }
 }
 
+// 故障を発生させる関数
 function setFault(kind){
   loadSample();
 
+  // R1-R2のケーブルをDOWN
   if(kind==='L1'){
     const l = state.links.find(l=>{
       const a=deviceById(l.a).name;
@@ -532,6 +557,7 @@ function setFault(kind){
     if(l) l.down=true;
   }
 
+  // VLAN番号を間違える
   if(kind==='L2'){
     const pcA = state.devices.find(d=>d.name==='PC-A');
     const l = connectedLinks(pcA.id)[0];
@@ -539,11 +565,13 @@ function setFault(kind){
     l.label='VLAN20誤設定';
   }
 
+  // Gatewayを間違える
   if(kind==='L3'){
     const pcA = state.devices.find(d=>d.name==='PC-A');
     pcA.gateway = '192.168.10.254';
   }
 
+  // OSPFをOFF
   if(kind==='ROUTE'){
     state.protocol='OFF';
   }
@@ -551,6 +579,7 @@ function setFault(kind){
   render();
 }
 
+// JSON出力
 function exportJson(){
   const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
   const a = document.createElement('a');
@@ -559,6 +588,7 @@ function exportJson(){
   a.click();
 }
 
+// JSON出力
 function importJson(file){
   const fr = new FileReader();
   fr.onload = () => {
@@ -602,3 +632,42 @@ $('#exportBtn').onclick = exportJson;
 $('#importInput').onchange = e=> e.target.files[0] && importJson(e.target.files[0]);
 
 loadSample();
+
+// 全体の流れ
+// ページ起動
+//       │
+//       ▼
+// loadSample()
+//       │
+//       ▼
+// Router・Switch・PCを作成
+//       │
+//       ▼
+// render()
+//       │
+//       ▼
+// 画面表示
+//       │
+//       ▼
+// ユーザーが編集
+//       │
+//       ▼
+// stateを更新
+//       │
+//       ▼
+// render()
+//       │
+//       ▼
+// Ping実行
+//       │
+//       ▼
+// validatePing()
+//       │
+//       ├── L1確認
+//       ├── L2確認
+//       ├── L3確認
+//       └── Routing確認
+//       │
+//       ▼
+// 成功ならパケットアニメーション
+// 失敗なら原因を表示
