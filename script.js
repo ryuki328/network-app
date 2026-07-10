@@ -222,29 +222,30 @@ function renderLinks(){
     line.setAttribute('y2',cb.y);
     line.setAttribute('class',`link ${l.type==='trunk'?'trunk-link':''} ${l.type==='l3'?'l3-link':''} ${l.down?'down':''}`);
     line.setAttribute(
-  'class',
-  `link ${l.type === 'trunk' ? 'trunk-link' : ''} ${l.type === 'l3' ? 'l3-link' : ''} ${l.down ? 'down' : ''}`
-);
+      'class',
+      `link ${l.type === 'trunk' ? 'trunk-link' : ''} ${l.type === 'l3' ? 'l3-link' : ''} ${l.down ? 'down' : ''}`
+    );
 
-// 配線をクリックしたときに削除する
-line.addEventListener('click', (event) => {
-  event.stopPropagation();
+    line.dataset.linkId = l.id;
 
-  const deviceA = deviceById(l.a);
-  const deviceB = deviceById(l.b);
+    // 配線をクリックしたときに削除する
+    line.addEventListener('click', (event) => {
+      event.stopPropagation();
 
-  const ok = confirm(
-    `${deviceA?.name} と ${deviceB?.name} の配線を削除しますか？`
-  );
+      const deviceA = deviceById(l.a);
+      const deviceB = deviceById(l.b);
 
-  if (ok) {
-    state.links = state.links.filter(link => link.id !== l.id);
-    render();
-  }
-});
+      const ok = confirm(
+        `${deviceA?.name} と ${deviceB?.name} の配線を削除しますか？`
+      );
 
-linkLayer.appendChild(line);
-    
+      if (ok) {
+        state.links = state.links.filter(link => link.id !== l.id);
+        render();
+      }
+    });
+
+    linkLayer.appendChild(line);
 
     const text = document.createElementNS('http://www.w3.org/2000/svg','text');
     text.setAttribute('x',(ca.x+cb.x)/2);
@@ -512,6 +513,10 @@ function validatePing(src,dst){
   const rSrc = routerForSite(siteOfPc(src));
   const rDst = routerForSite(siteOfPc(dst));
 
+  if(!rSrc || !rDst){
+    return {ok:false,layer:'L3',reason:'送信元または宛先サイトのRouterが見つかりません。'};
+  }
+
   if(!l2Reachable(src.id,rSrc.id,src.vlan)){
     return {ok:false,...findL2Problem(src,rSrc,src.vlan)};
   }
@@ -521,9 +526,12 @@ function validatePing(src,dst){
   }
 
   if(rSrc.id===rDst.id){
+    const toRouter = pathBetween(src.id,rSrc.id,src.vlan);
+    const fromRouter = pathBetween(rSrc.id,dst.id,dst.vlan);
+
     return {
       ok:true,
-      path:[src.id,rSrc.id,dst.id],
+      path:[src.id,...toRouter,...fromRouter],
       reason:'同一サイト内でRouter-on-a-StickによるVLAN間通信に成功しました。'
     };
   }
@@ -538,9 +546,12 @@ function validatePing(src,dst){
     return {ok:false,layer:'L3',reason:'RIP/OSPF/BGPなどの経路交換が停止しており、遠隔ネットワークへの経路がありません。'};
   }
 
+  const toSourceRouter = pathBetween(src.id,rSrc.id,src.vlan);
+  const fromDestinationRouter = pathBetween(rDst.id,dst.id,dst.vlan);
+
   return {
     ok:true,
-    path:[src.id,rSrc.id,rDst.id,dst.id],
+    path:[src.id,...toSourceRouter,rDst.id,...fromDestinationRouter],
     reason:`${state.protocol} による経路交換が有効で、遠隔サイト通信に成功しました。`
   };
 }
@@ -574,6 +585,16 @@ function pathBetween(s,t,vlan){
   return [];
 }
 
+function linkBetween(aId,bId){
+  return state.links.find(l=>
+    !l.down &&
+    (
+      (l.a===aId && l.b===bId) ||
+      (l.a===bId && l.b===aId)
+    )
+  );
+}
+
 // パケットアニメーション
 async function animatePath(ids){
   if(!ids || ids.length<2) return;
@@ -581,9 +602,34 @@ async function animatePath(ids){
   packet.classList.remove('hidden');
 
   for(let i=0;i<ids.length-1;i++){
-    const a=center(deviceById(ids[i]));
-    const b=center(deviceById(ids[i+1]));
-    await animateSegment(a,b);
+    const from = deviceById(ids[i]);
+    const to = deviceById(ids[i+1]);
+
+    if(!from || !to) continue;
+
+    const activeLink = linkBetween(from.id,to.id);
+
+    const line = activeLink
+      ? linkLayer.querySelector(`[data-link-id="${activeLink.id}"]`)
+      : null;
+
+    const fromElement = workspace.querySelector(
+      `.device[data-id="${from.id}"]`
+    );
+
+    const toElement = workspace.querySelector(
+      `.device[data-id="${to.id}"]`
+    );
+
+    line?.classList.add('packet-active');
+    fromElement?.classList.add('packet-hop');
+    toElement?.classList.add('packet-hop');
+
+    await animateSegment(center(from),center(to));
+
+    line?.classList.remove('packet-active');
+    fromElement?.classList.remove('packet-hop');
+    toElement?.classList.remove('packet-hop');
   }
 
   packet.classList.add('hidden');
@@ -616,8 +662,13 @@ async function runPing(){
   const box = $('#resultBox');
 
   if(r.ok){
+    const routeNames = r.path
+      .map(id => deviceById(id)?.name)
+      .filter(Boolean)
+      .join(' → ');
+
     box.className='result-box success';
-    box.innerHTML = `<b>Ping成功</b><br>${src.name} → ${dst.name}<br>${r.reason}<br>判断: L1/L2/L3 の設定が正常です。`;
+    box.innerHTML = `<b>Ping成功</b><br>${src.name} → ${dst.name}<br>${r.reason}<br><b>通過経路:</b> ${routeNames}<br>判断: L1/L2/L3 の設定が正常です。`;
     await animatePath(r.path);
   } else {
     box.className='result-box fail';
