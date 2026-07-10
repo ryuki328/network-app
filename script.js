@@ -137,13 +137,14 @@ function loadSample(){
   const pcs = [
     ['PC-A',60,460,10,'192.168.10.10','192.168.10.1'],
     ['PC-B',180,460,20,'192.168.20.10','192.168.20.1'],
-    ['PC-C',300,460,10,'192.168.10.10','192.168.10.1'],
-    ['PC-D',420,460,20,'192.168.20.10','192.168.20.1'],
-    ['PC-E',620,460,30,'192.168.30.10','192.168.30.1'],
-    ['PC-F',740,460,40,'192.168.40.10','192.168.40.1'],
-    ['PC-G',860,460,30,'192.168.30.10','192.168.30.1'],
-    ['PC-H',980,460,40,'192.168.40.10','192.168.40.1']
+    ['PC-C',300,460,10,'192.168.10.20','192.168.10.1'],
+    ['PC-D',420,460,20,'192.168.20.20','192.168.20.1'],
+    ['PC-E',620,460,30,'192.168.130.10','192.168.130.1'],
+    ['PC-F',740,460,40,'192.168.140.10','192.168.140.1'],
+    ['PC-G',860,460,30,'192.168.130.20','192.168.130.1'],
+    ['PC-H',980,460,40,'192.168.140.20','192.168.140.1']
   ];
+
 
   pcs.forEach(([n,x,y,v,ip,gw])=>createDevice('pc',n,x,y,{vlan:v,ip,mask:'255.255.255.0',gateway:gw}));
 
@@ -220,7 +221,6 @@ function renderLinks(){
     line.setAttribute('y1',ca.y);
     line.setAttribute('x2',cb.x);
     line.setAttribute('y2',cb.y);
-    line.setAttribute('class',`link ${l.type==='trunk'?'trunk-link':''} ${l.type==='l3'?'l3-link':''} ${l.down?'down':''}`);
     line.setAttribute(
       'class',
       `link ${l.type === 'trunk' ? 'trunk-link' : ''} ${l.type === 'l3' ? 'l3-link' : ''} ${l.down ? 'down' : ''}`
@@ -500,12 +500,19 @@ function validatePing(src,dst){
     return {ok:false,layer:'-',reason:'同じPC同士は選択できません。'};
   }
 
-  for(const p of [src,dst]){
-    if(!p.ip||!p.mask||!p.gateway){
-      return {ok:false,layer:'L3',reason:`${p.name} のIPアドレス、サブネットマスク、Default Gatewayが未設定です。`};
+   // IPアドレスとサブネットマスクは、どの通信でも必要
+  for (const pc of [src, dst]) {
+    if (!pc.ip || !pc.mask) {
+      return {
+        ok: false,
+        layer: 'L3',
+        reason: `${pc.name} のIPアドレスまたはサブネットマスクが未設定です。`
+      };
     }
   }
 
+  //同一サブネットかどうかを判定する
+  //同一サブネットならL2通信を試す
   if(sameSubnet(src.ip,dst.ip,src.mask)){
     if(src.vlan!==dst.vlan){
       return {ok:false,layer:'L2',reason:'同一サブネットなのに所属VLANが異なっています。'};
@@ -521,6 +528,18 @@ function validatePing(src,dst){
 
     const p = findL2Problem(src,dst,src.vlan);
     return {ok:false,...p};
+  }
+
+  // 異なるサブネットの場合は、L3通信を試す
+  // Default Gatewayが設定されているかを確認する
+  for (const pc of [src, dst]) {
+    if (!pc.gateway) {
+      return {
+        ok: false,
+        layer: 'L3',
+        reason: `${pc.name} のDefault Gatewayが未設定です。`
+      };
+    }
   }
 
   const srcGw = gatewayFor(src);
