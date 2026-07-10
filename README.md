@@ -61,14 +61,16 @@ git add .
 git commit -m "変更内容を記述"
 ```
 
-
-
-例：
+### ローカル変更を完全に捨てて、最新mainを取得する
 
 ```bash
-git add .
-git commit -m "画面レイアウトを追加"
+git switch main
+git fetch origin
+git reset --hard origin/main
 ```
+
+
+
 
 ### 8. 作業ブランチをGitHubへ送信する
 
