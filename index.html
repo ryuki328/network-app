@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>実験ネットワーク可視化シミュレータ</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">情報システム実験2A / モデルプロジェクト課題①</p>
+      <h1>実験ネットワーク可視化・L1/L2/L3原因分析シミュレータ</h1>
+    </div>
+    <div class="status-chip" id="protocolChip">Routing: OSPF</div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>作成・操作</h2>
+        <div class="button-grid">
+          <button data-add="router">Router</button>
+          <button data-add="switch">Switch</button>
+          <button data-add="pc">PC</button>
+          <button id="connectModeBtn">配線モード</button>
+        </div>
+        <button class="primary" id="loadSampleBtn">実験トポロジー自動生成</button>
+        <button id="clearBtn">全削除</button>
+      </section>
+
+      <section class="panel">
+        <h2>Ping確認</h2>
+        <label>送信元PC<select id="srcPc"></select></label>
+        <label>宛先PC<select id="dstPc"></select></label>
+        <button class="primary" id="pingBtn">Ping 実行</button>
+        <div id="resultBox" class="result-box neutral">結果がここに表示されます。</div>
+      </section>
+
+      <section class="panel">
+        <h2>設定ミスデモ</h2>
+        <button id="faultL1">L1: ケーブル断</button>
+        <button id="faultL2">L2: VLANミス</button>
+        <button id="faultL3">L3: Gatewayミス</button>
+        <button id="faultRoute">L3: 経路交換停止</button>
+        <button class="primary" id="fixAll">設定を修正</button>
+      </section>
+
+      <section class="panel">
+        <h2>保存</h2>
+        <button id="exportBtn">構成JSONを保存</button>
+        <label class="file-label">構成JSONを読込<input id="importInput" type="file" accept="application/json" /></label>
+      </section>
+    </aside>
+
+    <section class="workspace-wrap">
+      <div class="workspace-toolbar">
+        <span id="modeHint">通常モード：機器をドラッグできます。機器をクリックすると設定を編集します。</span>
+        <div class="legend">
+          <span class="v10">VLAN10</span>
+          <span class="v20">VLAN20</span>
+          <span class="v30">VLAN30</span>
+          <span class="v40">VLAN40</span>
+          <span class="trunk">trunk</span>
+          <span class="l3">L3</span>
+        </div>
+      </div>
+      <div id="workspace" class="workspace">
+        <svg id="linkLayer" class="link-layer"></svg>
+        <div id="packet" class="packet hidden"></div>
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <section class="panel">
+        <h2>選択中の機器</h2>
+        <div id="deviceEditor" class="editor-empty">機器を選択してください。</div>
+      </section>
+      <section class="panel table-panel">
+        <h2>IPアドレス表</h2>
+        <div id="ipTable"></div>
+      </section>
+      <section class="panel table-panel">
+        <h2>ポート割当・経路表</h2>
+        <div id="portTable"></div>
+        <pre id="routeTable"></pre>
+      </section>
+    </aside>
+  </main>
+
+  <template id="deviceTemplate">
+    <div class="device" tabindex="0">
+      <img class="device-icon" alt="device icon" />
+      <div class="device-name"></div>
+      <div class="device-meta"></div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
