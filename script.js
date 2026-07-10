@@ -31,15 +31,74 @@ function routerForSite(site){ return state.devices.find(d=>d.type==='router' && 
 function gatewayFor(pc){ const r = routerForSite(siteOfPc(pc)); return r?.subinterfaces?.[pc.vlan]; }
 function classForVlan(vlan){ return vlanColors[vlan] || 'v10'; }
 
+function createDeviceName(type) {
+  let number = 1;
+
+  while (true) {
+    let name;
+
+    if (type === 'pc') {
+      name = `PC-${String.fromCharCode(64 + number)}`;
+    } else if (type === 'switch') {
+      name = `SW${number}`;
+    } else if (type === 'router') {
+      name = `R${number}`;
+    } else {
+      name = type.toUpperCase();
+    }
+
+    const exists = state.devices.some(device => device.name === name);
+
+    if (!exists) {
+      return name;
+    }
+
+    number++;
+  }
+}
+
 // 機器を作成する関数
-function createDevice(type, name, x=160, y=120, opts={}){
-  const d = { id: uid(type[0]), type, name: name || type.toUpperCase(), x, y, ports: {}, ...opts };
-  if(type==='pc') Object.assign(d, {ip:'', mask:'255.255.255.0', gateway:'', vlan:10}, opts);
-  if(type==='switch') Object.assign(d, {vlans:[10,20,30,40], ports:{}, trunkAllowed:[10,20,30,40]}, opts);
-  if(type==='router') Object.assign(d, {ip:'', mask:'255.255.255.252', subinterfaces:{}, routes:true}, opts);
-  state.devices.push(d);
+function createDevice(type, name, x = 160, y = 120, opts = {}) {
+  const device = {
+    id: uid(type[0]),
+    type: type,
+    name: name || createDeviceName(type),
+    x: x,
+    y: y,
+    ports: {},
+    ...opts
+  };
+
+  if (type === 'pc') {
+    Object.assign(device, {
+      ip: '',
+      mask: '255.255.255.0',
+      gateway: '',
+      vlan: 10
+    }, opts);
+  }
+
+  if (type === 'switch') {
+    Object.assign(device, {
+      vlans: [10, 20, 30, 40],
+      ports: {},
+      trunkAllowed: [10, 20, 30, 40]
+    }, opts);
+  }
+
+  if (type === 'router') {
+    Object.assign(device, {
+      ip: '',
+      mask: '255.255.255.252',
+      subinterfaces: {},
+      routes: true
+    }, opts);
+  }
+
+  state.devices.push(device);
   render();
-  return d;
+
+  return device;
 }
 
 // ケーブルを接続する関数
@@ -582,8 +641,13 @@ $('#connectModeBtn').onclick = ()=>{
   render();
 };
 
-document.querySelectorAll('[data-add]').forEach(btn=>{
-  btn.onclick=()=>createDevice(btn.dataset.add, btn.dataset.add.toUpperCase(), 180, 180);
+document.querySelectorAll('[data-add]').forEach(btn => {
+  btn.onclick = () => {
+    const type = btn.dataset.add;
+    const name = createDeviceName(type);
+
+    createDevice(type, name, 180, 180);
+  };
 });
 
 $('#pingBtn').onclick = runPing;
