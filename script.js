@@ -3,6 +3,8 @@
 const $ = (q) => document.querySelector(q);
 // ネットワーク図を表示するエリアを取得
 const workspace = $('#workspace');
+// 機器を配置するためのキャンバスを取得
+const canvas = $('#canvas');
 // 機器同士を結ぶ線（ケーブル）を描画するためのSVGを取得
 const linkLayer = $('#linkLayer');
 // Ping実行時に動く「パケット」のオブジェクト
@@ -16,6 +18,25 @@ let state = { devices: [], links: [], selectedId: null, connectMode: false, conn
 const vlanColors = {10:'v10',20:'v20',30:'v30',40:'v40'};
 // 機器ごとの画像ファイルを指定する
 const img = {router:'assets/router.svg', switch:'assets/switch.svg', pc:'assets/pc.svg'};
+
+// キャンバスの表示位置と拡大率
+let view = {
+  x: 0,
+  y: 0,
+  scale: 1
+};
+
+// キャンバスをドラッグしているときの情報
+let panState = null;
+
+// ドラッグしたかどうか
+let didPan = false;
+
+// キャンバスの位置と倍率を反映する
+function applyViewTransform() {
+  canvas.style.transform =
+    `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+}
 
 
 function uid(prefix){ return `${prefix}${state.nextId++}`; }
@@ -169,7 +190,7 @@ function render(){
   $('#protocolChip').textContent = `Routing: ${state.protocol}${state.protocol==='OFF'?'（停止中）':''}`;
   //「state.protocol==='OFF'?'（停止中）':''」三項演算子: もしOFFなら "(停止中)" そうでなければ ""
   linkLayer.innerHTML = '';
-  workspace.querySelectorAll('.device').forEach(e=>e.remove());
+  canvas.querySelectorAll('.device').forEach(e=>e.remove());
   renderLinks();
   state.devices.forEach(renderDevice);
   updateSelectors();
@@ -204,7 +225,7 @@ function renderDevice(d){
     handleDeviceClick(d.id);
   });
 
-  workspace.appendChild(el);
+  canvas.appendChild(el);
 }
 
 function renderLinks(){
@@ -275,21 +296,85 @@ function handleDeviceClick(id){
 }
 // ドラッグをできるようにする設定---------------------------------------------
 let drag = null;
-function startDrag(e){
-  if(state.connectMode) return;
+function startDrag(e) {
+  if (state.connectMode) {
+    return;
+  }
+
+  // 背景ドラッグを開始させない
+  e.stopPropagation();
+
   const id = e.currentTarget.dataset.id;
   const d = deviceById(id);
-  drag = {id, dx:e.clientX-d.x, dy:e.clientY-d.y};
-  document.addEventListener('mousemove', onDrag);
-  document.addEventListener('mouseup', endDrag);
+
+  if (!d) {
+    return;
+  }
+
+  const rect = workspace.getBoundingClientRect();
+
+  const mouseCanvasX =
+    (e.clientX - rect.left - view.x) /
+    view.scale;
+
+  const mouseCanvasY =
+    (e.clientY - rect.top - view.y) /
+    view.scale;
+
+  drag = {
+    id: id,
+    dx: mouseCanvasX - d.x,
+    dy: mouseCanvasY - d.y
+  };
+
+  document.addEventListener(
+    'mousemove',
+    onDrag
+  );
+
+  document.addEventListener(
+    'mouseup',
+    endDrag
+  );
 }
 
-function onDrag(e){
-  if(!drag) return;
+function onDrag(e) {
+  if (!drag) {
+    return;
+  }
+
   const d = deviceById(drag.id);
+
+  if (!d) {
+    return;
+  }
+
   const rect = workspace.getBoundingClientRect();
-  d.x = Math.max(0, Math.min(rect.width-120, e.clientX - drag.dx));
-  d.y = Math.max(0, Math.min(rect.height-105, e.clientY - drag.dy));
+
+  const mouseCanvasX =
+    (e.clientX - rect.left - view.x) /
+    view.scale;
+
+  const mouseCanvasY =
+    (e.clientY - rect.top - view.y) /
+    view.scale;
+
+  d.x = Math.max(
+    0,
+    Math.min(
+      2000 - 110,
+      mouseCanvasX - drag.dx
+    )
+  );
+
+  d.y = Math.max(
+    0,
+    Math.min(
+      1400 - 96,
+      mouseCanvasY - drag.dy
+    )
+  );
+
   render();
 }
 
@@ -298,11 +383,170 @@ function endDrag(){
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', endDrag);
 }
+
+// 背景を押したとき、キャンバス移動を開始する
+workspace.addEventListener('pointerdown', (event) => {
+  // 左クリック以外は無視
+  if (event.button !== 0) {
+    return;
+  }
+
+  // 機器を押した場合は機器ドラッグを優先
+  if (event.target.closest('.device')) {
+    return;
+  }
+
+  // 配線を押した場合は配線操作を優先
+  if (event.target.closest('.link')) {
+    return;
+  }
+
+  panState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    originalX: view.x,
+    originalY: view.y
+  };
+
+  didPan = false;
+
+  workspace.classList.add('panning');
+
+  // workspaceの外までマウスが移動しても追跡する
+  workspace.setPointerCapture(event.pointerId);
+
+  event.preventDefault();
+});
+
+// マウスを動かした分だけキャンバス全体を移動する
+workspace.addEventListener('pointermove', (event) => {
+  if (!panState) {
+    return;
+  }
+
+  if (event.pointerId !== panState.pointerId) {
+    return;
+  }
+
+  const moveX =
+    event.clientX - panState.startX;
+
+  const moveY =
+    event.clientY - panState.startY;
+
+  // 少しでも動かしたらパン操作と判定
+  if (
+    Math.abs(moveX) > 3 ||
+    Math.abs(moveY) > 3
+  ) {
+    didPan = true;
+  }
+
+  view.x =
+    panState.originalX + moveX;
+
+  view.y =
+    panState.originalY + moveY;
+
+  applyViewTransform();
+});
+
+// マウスを離したら移動終了
+workspace.addEventListener('pointerup', (event) => {
+  if (!panState) {
+    return;
+  }
+
+  if (event.pointerId !== panState.pointerId) {
+    return;
+  }
+
+  workspace.releasePointerCapture(event.pointerId);
+
+  panState = null;
+
+  workspace.classList.remove('panning');
+});
+
+// workspace外などで操作が中断された場合
+workspace.addEventListener('pointercancel', () => {
+  panState = null;
+  workspace.classList.remove('panning');
+});
+
+// マウスホイールでネットワーク図だけ拡大・縮小する
+workspace.addEventListener(
+  'wheel',
+  (event) => {
+    event.preventDefault();
+
+    const rect = workspace.getBoundingClientRect();
+
+    // workspace内でのマウス位置
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    const oldScale = view.scale;
+
+    // 上スクロールで拡大、下スクロールで縮小
+    const zoomFactor =
+      event.deltaY < 0 ? 1.1 : 0.9;
+
+    // 最小40%、最大200%
+    const newScale = Math.min(
+      2,
+      Math.max(
+        0.4,
+        oldScale * zoomFactor
+      )
+    );
+
+    // マウスが指しているcanvas上の位置
+    const worldX =
+      (mouseX - view.x) /
+      oldScale;
+
+    const worldY =
+      (mouseY - view.y) /
+      oldScale;
+
+    // マウス位置を中心に拡大縮小
+    view.x =
+      mouseX -
+      worldX * newScale;
+
+    view.y =
+      mouseY -
+      worldY * newScale;
+
+    view.scale = newScale;
+
+    applyViewTransform();
+  },
+  {
+    passive: false
+  }
+);
 //----------------------------------------------------------------------
 
 
-workspace.addEventListener('click',()=>{
-  state.selectedId=null;
+workspace.addEventListener('click', (event) => {
+  // ドラッグ直後のクリック処理は無視する
+  if (didPan) {
+    didPan = false;
+    return;
+  }
+
+  // 機器や配線をクリックした場合は無視
+  if (
+    event.target.closest('.device') ||
+    event.target.closest('.link')
+  ) {
+    return;
+  }
+
+  state.selectedId = null;
   render();
 });
 
@@ -772,6 +1016,7 @@ $('#exportBtn').onclick = exportJson;
 $('#importInput').onchange = e=> e.target.files[0] && importJson(e.target.files[0]);
 
 loadSample();
+applyViewTransform();
 
 // 全体の流れ
 // ページ起動
