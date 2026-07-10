@@ -374,14 +374,38 @@ function renderEditor(){
 }
 
 function updateSelectors(){
-  const pcs = state.devices.filter(d=>d.type==='pc').sort((a,b)=>a.name.localeCompare(b.name));
-  const opts = pcs.map(d=>`<option value="${d.id}">${d.name} (${d.ip})</option>`).join('');
-  $('#srcPc').innerHTML = opts;
-  $('#dstPc').innerHTML = opts;
+  const srcSelect = $('#srcPc');
+  const dstSelect = $('#dstPc');
 
-  if(pcs[0]) $('#srcPc').value = pcs[0].id;
-  if(pcs[4]) $('#dstPc').value = pcs[4].id;
-  else if(pcs[1]) $('#dstPc').value = pcs[1].id;
+  // 現在選択されている値を保存
+  const currentSrc = srcSelect.value;
+  const currentDst = dstSelect.value;
+
+  const pcs = state.devices
+    .filter(d => d.type === 'pc')
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const opts = pcs
+    .map(d => `<option value="${d.id}">${d.name} (${d.ip})</option>`)
+    .join('');
+
+  srcSelect.innerHTML = opts;
+  dstSelect.innerHTML = opts;
+
+  // 以前選択していたPCが残っていれば、その選択を維持
+  if (pcs.some(pc => pc.id === currentSrc)) {
+    srcSelect.value = currentSrc;
+  } else if (pcs[0]) {
+    srcSelect.value = pcs[0].id;
+  }
+
+  if (pcs.some(pc => pc.id === currentDst)) {
+    dstSelect.value = currentDst;
+  } else if (pcs[1]) {
+    dstSelect.value = pcs[1].id;
+  } else if (pcs[0]) {
+    dstSelect.value = pcs[0].id;
+  }
 }
 
 function renderTables(){
