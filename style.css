@@ -310,10 +310,6 @@ input {
   outline: 4px solid #22c55e;
 }
 
-.device.packet-hop {
-  outline: 4px solid #f59e0b;
-  background: #fffbeb;
-}
 
 .device-icon {
   max-width: 74px;
@@ -360,11 +356,6 @@ input {
   stroke: #ef4444;
   stroke-dasharray: 4 8;
   opacity: 0.65;
-}
-
-.link.packet-active {
-  stroke: var(--warning);
-  stroke-width: 8;
 }
 
 .link-label {
