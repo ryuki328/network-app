@@ -221,7 +221,30 @@ function renderLinks(){
     line.setAttribute('x2',cb.x);
     line.setAttribute('y2',cb.y);
     line.setAttribute('class',`link ${l.type==='trunk'?'trunk-link':''} ${l.type==='l3'?'l3-link':''} ${l.down?'down':''}`);
-    linkLayer.appendChild(line);
+    line.setAttribute(
+  'class',
+  `link ${l.type === 'trunk' ? 'trunk-link' : ''} ${l.type === 'l3' ? 'l3-link' : ''} ${l.down ? 'down' : ''}`
+);
+
+// 配線をクリックしたときに削除する
+line.addEventListener('click', (event) => {
+  event.stopPropagation();
+
+  const deviceA = deviceById(l.a);
+  const deviceB = deviceById(l.b);
+
+  const ok = confirm(
+    `${deviceA?.name} と ${deviceB?.name} の配線を削除しますか？`
+  );
+
+  if (ok) {
+    state.links = state.links.filter(link => link.id !== l.id);
+    render();
+  }
+});
+
+linkLayer.appendChild(line);
+    
 
     const text = document.createElementNS('http://www.w3.org/2000/svg','text');
     text.setAttribute('x',(ca.x+cb.x)/2);

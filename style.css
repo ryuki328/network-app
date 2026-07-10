@@ -10,3 +10,16 @@
 .workspace{position:relative;flex:1;overflow:hidden;border-radius:22px;border:1px solid #94a3b8;background:radial-gradient(circle at 20px 20px,#cbd5e1 1.2px,transparent 1.2px),linear-gradient(#f8fafc,#eef2ff);background-size:24px 24px,auto;box-shadow:inset 0 0 0 2px #ffffff88}.link-layer{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}.device{position:absolute;z-index:1;width:110px;min-height:96px;background:#fff;border:2px solid #cbd5e1;border-radius:20px;padding:8px;text-align:center;box-shadow:0 12px 24px #0f172a20;cursor:grab;user-select:none}.device:active{cursor:grabbing}.device.selected{outline:4px solid #facc15;border-color:#0f172a}.device.connect-source{outline:4px solid #22c55e}.device-icon{height:46px;max-width:74px}.device-name{font-weight:900;font-size:16px}.device-meta{font-size:11px;color:#475569;margin-top:2px;line-height:1.2}.pc-vlan{display:inline-block;margin-top:4px}.link{stroke:#334155;stroke-width:5;stroke-linecap:round}.link.trunk-link{stroke:#111827;stroke-dasharray:10 8}.link.l3-link{stroke:#e11d48;stroke-width:6}.link.down{stroke:#ef4444;stroke-dasharray:4 8;opacity:.65}.link-label{font-size:12px;font-weight:900;paint-order:stroke;stroke:#fff;stroke-width:4;fill:#0f172a}.packet{position:absolute;z-index:3;width:18px;height:18px;background:#facc15;border:3px solid #78350f;border-radius:50%;box-shadow:0 0 0 8px #facc1544;pointer-events:none}.hidden{display:none}
 .editor-empty{color:#64748b;font-size:14px}.editor-row{display:grid;grid-template-columns:92px 1fr;gap:8px;align-items:center;margin:8px 0}.editor-row span{font-size:13px;font-weight:900;color:#475569}.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.danger{background:#fee2e2;border-color:#fca5a5;color:#991b1b}.table-panel{font-size:12px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid #e2e8f0;padding:6px 5px;text-align:left}th{background:#f1f5f9;color:#334155}pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;padding:10px;border-radius:14px;font-size:12px;line-height:1.4;max-height:180px;overflow:auto}.route-protocol{font-weight:900;color:#0ea5e9}
 @media(max-width:1200px){.layout{grid-template-columns:250px 1fr}.inspector{grid-column:1/3;display:grid;grid-template-columns:1fr 1fr 1fr}.workspace{min-height:620px}}
+
+.link {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.link:hover {
+  stroke-width: 7;
+}
+
+.link-label {
+  pointer-events: none;
+}
