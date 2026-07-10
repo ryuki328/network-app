@@ -47,12 +47,21 @@ VS Codeなどで担当ファイルを編集し、保存します。
 git status
 ```
 
-### 7. 変更をコミットする
+
+### 7 指定したファイルのみコミット
+```bash
+git add script.js
+git commit -m "変更内容を記述"
+```
+
+### 7.5 すべての変更をコミット
 
 ```bash
 git add .
 git commit -m "変更内容を記述"
 ```
+
+
 
 例：
 
