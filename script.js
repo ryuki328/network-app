@@ -174,10 +174,10 @@ function render(){
   updateSelectors();
   renderEditor();
   renderTables();
-  $('#connectModeBtn').classList.toggle('active', state.connectMode);
-  $('#modeHint').textContent = state.connectMode
-    ? '配線モード：2つの機器を順番にクリックするとケーブルを接続します。'
-    : '通常モード：機器をドラッグできます。機器をクリックすると設定を編集します。';
+  // $('#connectModeBtn').classList.toggle('active', state.connectMode);
+  // $('#modeHint').textContent = state.connectMode
+  //   ? '配線モード：2つの機器を順番にクリックするとケーブルを接続します。'
+  //   : '通常モード：機器をドラッグできます。機器をクリックすると設定を編集します。';
 }
 
 function renderDevice(d){
