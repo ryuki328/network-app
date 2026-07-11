@@ -258,6 +258,7 @@ input {
   overflow: hidden;
   border: 1px solid #94a3b8;
   border-radius: 22px;
+  overscroll-behavior: contain;
   background:
     radial-gradient(
       circle at 20px 20px,
@@ -471,4 +472,44 @@ pre {
   .workspace {
     min-height: 620px;
   }
+}
+
+/* ==============================
+   キャンバスのパン・ズーム
+============================== */
+
+.workspace {
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.workspace.panning {
+  cursor: grabbing;
+}
+
+.canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2000px;
+  height: 1400px;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* SVGは仮想キャンバス全体に広げる */
+.canvas .link-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 2000px;
+  height: 1400px;
+  pointer-events: none;
+}
+
+/* 配線だけはクリック可能にする */
+.canvas .link {
+  pointer-events: stroke;
 }
