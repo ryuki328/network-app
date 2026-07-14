@@ -1002,13 +1002,116 @@ $('#connectModeBtn').onclick = ()=>{
   render();
 };
 
+// 左サイドバーから機器をドラッグ＆ドロップで追加する
 document.querySelectorAll('[data-add]').forEach(btn => {
-  btn.onclick = () => {
-    const type = btn.dataset.add;
-    const name = createDeviceName(type);
+  // HTML側にdraggable属性を書かなくてもドラッグ可能にする
+  btn.draggable = true;
 
-    createDevice(type, name, 180, 180);
-  };
+  // ドラッグ開始時に機器の種類を保存する
+  btn.addEventListener('dragstart', event => {
+    const type = btn.dataset.add;
+
+    event.dataTransfer.setData('application/x-device-type', type);
+    event.dataTransfer.effectAllowed = 'copy';
+
+    btn.classList.add('dragging-device-button');
+  });
+
+  // ドラッグ終了時に見た目を戻す
+  btn.addEventListener('dragend', () => {
+    btn.classList.remove('dragging-device-button');
+    workspace.classList.remove('device-drop-ready');
+  });
+
+  // 機器をworkspace上へドラッグしている間
+workspace.addEventListener('dragover', event => {
+  const types = Array.from(event.dataTransfer.types);
+
+  // サイドバーの機器ボタン以外のドラッグは受け付けない
+  if (!types.includes('application/x-device-type')) {
+    return;
+  }
+
+  // dropイベントを発生させるために必要
+  event.preventDefault();
+
+  event.dataTransfer.dropEffect = 'copy';
+  workspace.classList.add('device-drop-ready');
+});
+
+// workspaceの外へ出た場合
+workspace.addEventListener('dragleave', event => {
+  // 子要素への移動では解除しない
+  if (workspace.contains(event.relatedTarget)) {
+    return;
+  }
+
+  workspace.classList.remove('device-drop-ready');
+});
+
+// workspaceへ機器をドロップしたとき
+workspace.addEventListener('drop', event => {
+  event.preventDefault();
+
+  workspace.classList.remove('device-drop-ready');
+
+  const type = event.dataTransfer.getData(
+    'application/x-device-type'
+  );
+
+  if (!['router', 'switch', 'pc'].includes(type)) {
+    return;
+  }
+
+  const rect = workspace.getBoundingClientRect();
+
+  // workspace内でのドロップ位置
+  const mouseX = event.clientX - rect.left;
+  const mouseY = event.clientY - rect.top;
+
+  // パンとズームを考慮してcanvas上の座標へ変換する
+  const canvasX =
+    (mouseX - view.x) /
+    view.scale;
+
+  const canvasY =
+    (mouseY - view.y) /
+    view.scale;
+
+  // 機器の中心がマウス位置に来るように調整
+  const deviceWidth = 110;
+  const deviceHeight = 96;
+
+  const x = Math.max(
+    0,
+    Math.min(
+      2000 - deviceWidth,
+      canvasX - deviceWidth / 2
+    )
+  );
+
+  const y = Math.max(
+    0,
+    Math.min(
+      1400 - deviceHeight,
+      canvasY - deviceHeight / 2
+    )
+  );
+
+  const name = createDeviceName(type);
+
+  const device = createDevice(
+    type,
+    name,
+    x,
+    y
+  );
+
+  // 追加した機器を選択状態にする
+  state.selectedId = device.id;
+  render();
+});
+
 });
 
 $('#pingBtn').onclick = runPing;
