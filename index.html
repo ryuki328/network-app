@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>実験ネットワーク可視化シミュレータ</title>
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
   <header class="app-header">
     <div>
@@ -61,9 +63,34 @@
 
       <!-- canvasで移動・拡大縮小できる -->
       <div id="workspace" class="workspace">
+        <div class="link-legend">
+          <div class="legend-title">リンク種別</div>
+
+          <div class="legend-item">
+            <svg class="legend-svg" viewBox="0 0 44 10">
+              <line class="legend-access" x1="2" y1="5" x2="42" y2="5"></line>
+            </svg>
+            <span>Access</span>
+          </div>
+
+          <div class="legend-item">
+            <svg class="legend-svg" viewBox="0 0 44 10">
+              <line class="legend-trunk" x1="2" y1="5" x2="42" y2="5"></line>
+            </svg>
+            <span>Trunk</span>
+          </div>
+
+          <div class="legend-item">
+            <svg class="legend-svg" viewBox="0 0 44 10">
+              <line class="legend-l3" x1="2" y1="5" x2="42" y2="5"></line>
+            </svg>
+            <span>L3 Routing</span>
+          </div>
+        </div>
         <div id="canvas" class="canvas">
           <svg id="linkLayer" class="link-layer"></svg>
           <div id="packet" class="packet hidden"></div>
+
         </div>
       </div>
     </section>
@@ -95,4 +122,5 @@
 
   <script src="script.js"></script>
 </body>
+
 </html>
