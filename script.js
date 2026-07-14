@@ -277,23 +277,108 @@ function renderLinks(){
   });
 }
 
-function handleDeviceClick(id){
-  if(state.connectMode){
-    if(!state.connectSource){
-      state.connectSource=id;
+function handleDeviceClick(id) {
+  if (state.connectMode) {
+    // 1台目を選択
+    if (!state.connectSource) {
+      state.connectSource = id;
       render();
       return;
     }
-    if(state.connectSource!==id){
-      createLink(state.connectSource,id,'access',10,'new link');
-      state.connectSource=null;
-      state.connectMode=false;
+
+    // 同じ機器を2回選んだ場合は何もしない
+    if (state.connectSource === id) {
+      return;
     }
+
+    const source = deviceById(state.connectSource);
+    const target = deviceById(id);
+
+    if (!source || !target) {
+      state.connectSource = null;
+      state.connectMode = false;
+      render();
+      return;
+    }
+
+    let linkType = 'access';
+    let vlan = 10;
+    let label = 'access';
+
+    // ルータ同士ならL3リンク
+    if (
+      source.type === 'router' &&
+      target.type === 'router'
+    ) {
+      linkType = 'l3';
+      vlan = null;
+      label = 'L3 link';
+    }
+
+    // スイッチ同士ならtrunk
+    else if (
+      source.type === 'switch' &&
+      target.type === 'switch'
+    ) {
+      linkType = 'trunk';
+      vlan = null;
+      label = 'trunk';
+    }
+
+    // ルータとスイッチならRouter-on-a-Stick用trunk
+    else if (
+      (source.type === 'router' && target.type === 'switch') ||
+      (source.type === 'switch' && target.type === 'router')
+    ) {
+      linkType = 'trunk';
+      vlan = null;
+      label = 'router-on-a-stick';
+    }
+
+    // PCとスイッチならaccess
+    else if (
+      (source.type === 'pc' && target.type === 'switch') ||
+      (source.type === 'switch' && target.type === 'pc')
+    ) {
+      const pc =
+        source.type === 'pc'
+          ? source
+          : target;
+
+      linkType = 'access';
+      vlan = pc.vlan;
+      label = `VLAN${pc.vlan}`;
+    }
+
+    // PC同士やPCとRouterの直結は拒否
+    else {
+      alert('この機器の組み合わせでは接続できません。');
+
+      state.connectSource = null;
+      state.connectMode = false;
+      render();
+      return;
+    }
+
+    createLink(
+      source.id,
+      target.id,
+      linkType,
+      vlan,
+      label
+    );
+
+    state.connectSource = null;
+
+    //配線モードを維持する
+    state.connectMode = true;
   } else {
-    state.selectedId=id;
+    state.selectedId = id;
   }
+
   render();
 }
+
 // ドラッグをできるようにする設定---------------------------------------------
 let drag = null;
 function startDrag(e) {
@@ -1002,74 +1087,123 @@ $('#connectModeBtn').onclick = ()=>{
   render();
 };
 
+// ======================================================
 // 左サイドバーから機器をドラッグ＆ドロップで追加する
+// クリックでは追加しない
+// ======================================================
+
+// Router / Switch / PC の各ボタンをドラッグ可能にする
 document.querySelectorAll('[data-add]').forEach(btn => {
-  // HTML側にdraggable属性を書かなくてもドラッグ可能にする
   btn.draggable = true;
 
-  // ドラッグ開始時に機器の種類を保存する
+  // ドラッグ開始
   btn.addEventListener('dragstart', event => {
     const type = btn.dataset.add;
 
-    event.dataTransfer.setData('application/x-device-type', type);
+    event.dataTransfer.setData(
+      'application/x-device-type',
+      type
+    );
+
     event.dataTransfer.effectAllowed = 'copy';
 
-    btn.classList.add('dragging-device-button');
+    btn.classList.add(
+      'dragging-device-button'
+    );
   });
 
-  // ドラッグ終了時に見た目を戻す
+  // ドラッグ終了
   btn.addEventListener('dragend', () => {
-    btn.classList.remove('dragging-device-button');
-    workspace.classList.remove('device-drop-ready');
+    btn.classList.remove(
+      'dragging-device-button'
+    );
+
+    workspace.classList.remove(
+      'device-drop-ready'
+    );
   });
 
-  // 機器をworkspace上へドラッグしている間
-workspace.addEventListener('dragover', event => {
-  const types = Array.from(event.dataTransfer.types);
+  // クリックによる追加を無効化
+  btn.addEventListener('click', event => {
+    event.preventDefault();
+  });
+});
 
-  // サイドバーの機器ボタン以外のドラッグは受け付けない
-  if (!types.includes('application/x-device-type')) {
+
+// workspace上へ機器をドラッグしている間
+workspace.addEventListener('dragover', event => {
+  const types = Array.from(
+    event.dataTransfer.types
+  );
+
+  // 機器ボタンのドラッグ以外は受け付けない
+  if (
+    !types.includes(
+      'application/x-device-type'
+    )
+  ) {
     return;
   }
 
-  // dropイベントを発生させるために必要
+  // dropイベントを有効にする
   event.preventDefault();
 
   event.dataTransfer.dropEffect = 'copy';
-  workspace.classList.add('device-drop-ready');
+
+  workspace.classList.add(
+    'device-drop-ready'
+  );
 });
+
 
 // workspaceの外へ出た場合
 workspace.addEventListener('dragleave', event => {
-  // 子要素への移動では解除しない
-  if (workspace.contains(event.relatedTarget)) {
+  // workspace内の子要素へ移動しただけなら解除しない
+  if (
+    event.relatedTarget &&
+    workspace.contains(event.relatedTarget)
+  ) {
     return;
   }
 
-  workspace.classList.remove('device-drop-ready');
+  workspace.classList.remove(
+    'device-drop-ready'
+  );
 });
+
 
 // workspaceへ機器をドロップしたとき
 workspace.addEventListener('drop', event => {
   event.preventDefault();
+  event.stopPropagation();
 
-  workspace.classList.remove('device-drop-ready');
+  workspace.classList.remove(
+    'device-drop-ready'
+  );
 
   const type = event.dataTransfer.getData(
     'application/x-device-type'
   );
 
-  if (!['router', 'switch', 'pc'].includes(type)) {
+  // 不正な機器種別は無視
+  if (
+    !['router', 'switch', 'pc'].includes(type)
+  ) {
     return;
   }
 
-  const rect = workspace.getBoundingClientRect();
+  const rect =
+    workspace.getBoundingClientRect();
 
-  // workspace内でのドロップ位置
-  const mouseX = event.clientX - rect.left;
-  const mouseY = event.clientY - rect.top;
+  // workspace内でのマウス位置
+  const mouseX =
+    event.clientX - rect.left;
 
-  // パンとズームを考慮してcanvas上の座標へ変換する
+  const mouseY =
+    event.clientY - rect.top;
+
+  // パンとズームを考慮して
+  // 仮想canvas上の座標へ変換する
   const canvasX =
     (mouseX - view.x) /
     view.scale;
@@ -1078,10 +1212,10 @@ workspace.addEventListener('drop', event => {
     (mouseY - view.y) /
     view.scale;
 
-  // 機器の中心がマウス位置に来るように調整
   const deviceWidth = 110;
   const deviceHeight = 96;
 
+  // 機器の中心がドロップ位置に来るようにする
   const x = Math.max(
     0,
     Math.min(
@@ -1098,7 +1232,8 @@ workspace.addEventListener('drop', event => {
     )
   );
 
-  const name = createDeviceName(type);
+  const name =
+    createDeviceName(type);
 
   const device = createDevice(
     type,
@@ -1109,9 +1244,8 @@ workspace.addEventListener('drop', event => {
 
   // 追加した機器を選択状態にする
   state.selectedId = device.id;
-  render();
-});
 
+  render();
 });
 
 $('#pingBtn').onclick = runPing;
