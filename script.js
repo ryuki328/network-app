@@ -822,16 +822,32 @@ function l2Reachable(startId, endId, vlan, visited=new Set()){
 }
 
 // L2通信に失敗したとき、その原因がL1なのかL2なのかを簡易的に推定する関数
-function findL2Problem(src,dst,vlan){
-  const allLinks = state.links.filter(l=>l.a===src.id||l.b===src.id||l.a===dst.id||l.b===dst.id);
+function findL2Problem(src, dst, vlan) {
+  const srcLinks = state.links.filter(
+    l => l.a === src.id || l.b === src.id
+  );
 
-  if(allLinks.some(l=>l.down)){
-    return {layer:'L1', reason:'ケーブルまたはリンクがDOWNです。'};
+  const dstLinks = state.links.filter(
+    l => l.a === dst.id || l.b === dst.id
+  );
+
+  if (srcLinks.length === 0 || dstLinks.length === 0) {
+    return {
+      layer: 'L1',
+      reason: '送信元または宛先のケーブルが未接続です。'
+    };
+  }
+
+  if (state.links.some(l => l.down)) {
+    return {
+      layer: 'L1',
+      reason: 'ネットワーク内のケーブルまたはリンクがDOWNです。'
+    };
   }
 
   return {
-    layer:'L2',
-    reason:`VLAN ${vlan} がaccess/trunkで正しく通っていません。VLAN割当またはtrunk allowed VLANを確認してください。`
+    layer: 'L2',
+    reason: `VLAN ${vlan} がaccessまたはtrunkで正しく通っていません。`
   };
 }
 
