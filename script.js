@@ -38,28 +38,44 @@ function applyViewTransform() {
     `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
 }
 
+// --------------補助関数-------------------------------------------
 
+// 機器や配線に重複しないIDをつける関数
 function uid(prefix){ return `${prefix}${state.nextId++}`; }
+// IDから機器を返す関数
 function deviceById(id){ return state.devices.find(d => d.id === id); }
+// 指定した機器につながっているケーブルを取得する関数（a,bはなに？→createLink()参照）
 function connectedLinks(id){ return state.links.filter(l => (l.a===id || l.b===id) && !l.down); }
+// リンクの反対側の機器IDを返す関数
 function other(link, id){ return link.a === id ? link.b : link.a; }
+// 機器の中心座標を求める関数
 function center(d){ return {x:d.x+55, y:d.y+48}; }
+// IPアドレスを32bit整数へ変換する関数(例：192.168.10.1→3232238081。理由：JavaScript上で比較できるようにするため)
 function ipToInt(ip){ return ip.split('.').reduce((a,b)=>((a<<8)+Number(b))>>>0,0); }
+//サブネットマスクを32bit整数へ変換する関数（なんでIPと分けられてる？）
 function maskToInt(mask){ return mask.split('.').reduce((a,b)=>((a<<8)+Number(b))>>>0,0); }
+// 通信される2台が同じサブネットか判定する関数(要素が空の場合false。次に判定の結果)
 function sameSubnet(a,b,mask){ if(!a||!b||!mask) return false; const m = maskToInt(mask); return (ipToInt(a)&m)===(ipToInt(b)&m); }
+// PCがどちらのサイトか判定する関数（？名前基準だから新しくネットワークを作った時バグるかも）
 function siteOfPc(pc){ return pc.name <= 'PC-D' ? 'left':'right'; }
+// サイトに対応するルータを返す関数
 function routerForSite(site){ return state.devices.find(d=>d.type==='router' && ((site==='left' && d.name==='R1') || (site==='right' && d.name==='R2'))); }
+// PCが設定すべき正しいDefault Gatewayを返す関数
 function gatewayFor(pc){ const r = routerForSite(siteOfPc(pc)); return r?.subinterfaces?.[pc.vlan]; }
+// VLAN番号に応じたCSSクラスを返す関数
 function classForVlan(vlan){ return vlanColors[vlan] || 'v10'; }
 
+// -------------------------------------------------------------------------------------------
+// 新しく追加する機器に重複しない名前を自動で付ける関数
 function createDeviceName(type) {
+  // number初期化
   let number = 1;
 
   while (true) {
     let name;
 
     if (type === 'pc') {
-      name = `PC-${String.fromCharCode(64 + number)}`;
+      name = `PC-${String.fromCharCode(64 + number)}`; //String.fromCharCode(64 + number)は文字コードから文字を作っている。そして関数化している
     } else if (type === 'switch') {
       name = `SW${number}`;
     } else if (type === 'router') {
@@ -67,9 +83,10 @@ function createDeviceName(type) {
     } else {
       name = type.toUpperCase();
     }
-
+    // 名前が重複していないか確認(some()は条件に一致するものがあればtrueを返すメソッド)
     const exists = state.devices.some(device => device.name === name);
 
+    // 重複していなければ返す
     if (!exists) {
       return name;
     }
@@ -132,7 +149,7 @@ function createLink(a,b,type='access',vlan=null,label=''){
   return l;
 }
 
-//サンプルネットワークを作成する
+//サンプルネットワークを作成する関数
 function loadSample(){
   state = { devices: [], links: [], selectedId: null, connectMode: false, connectSource: null, protocol: 'OSPF', nextId: 1 };
 
@@ -188,7 +205,7 @@ function loadSample(){
 // 画面の更新を行う関数
 function render(){
   $('#protocolChip').textContent = `Routing: ${state.protocol}${state.protocol==='OFF'?'（停止中）':''}`;
-  //「state.protocol==='OFF'?'（停止中）':''」三項演算子: もしOFFなら "(停止中)" そうでなければ ""
+  //「state.protocol==='OFF'?'（停止中）':''」三項演算子: もしOFFなら 「(停止中)」 そうでなければ 「」
   linkLayer.innerHTML = '';
   canvas.querySelectorAll('.device').forEach(e=>e.remove());
   renderLinks();
@@ -202,6 +219,7 @@ function render(){
   //   : '通常モード：機器をドラッグできます。機器をクリックすると設定を編集します。';
 }
 
+// 1台のネットワーク機器（Router・Switch・PC）を画面に表示する関数
 function renderDevice(d){
   const el = template.content.firstElementChild.cloneNode(true);
   el.dataset.id = d.id;
@@ -228,6 +246,7 @@ function renderDevice(d){
   canvas.appendChild(el);
 }
 
+// ネットワーク機器同士を結ぶ配線（リンク）を画面上に描画する関数
 function renderLinks(){
   state.links.forEach(l=>{
     const a = deviceById(l.a);
@@ -277,6 +296,7 @@ function renderLinks(){
   });
 }
 
+// ネットワーク機器がクリックされたときの動作を決める関数
 function handleDeviceClick(id) {
   if (state.connectMode) {
     // 1台目を選択
@@ -293,7 +313,7 @@ function handleDeviceClick(id) {
 
     const source = deviceById(state.connectSource);
     const target = deviceById(id);
-
+    // 機器が見つからない場合配線処理中止
     if (!source || !target) {
       state.connectSource = null;
       state.connectMode = false;
@@ -468,6 +488,7 @@ function endDrag(){
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', endDrag);
 }
+// ---------------------------------------------------------------
 
 // 背景を押したとき、キャンバス移動を開始する
 workspace.addEventListener('pointerdown', (event) => {
@@ -693,7 +714,7 @@ function renderEditor(){
 
     render();
   };
-
+  //デバイスの削除
   $('#deleteDevice').onclick = ()=>{
     state.links=state.links.filter(l=>l.a!==d.id && l.b!==d.id);
     state.devices=state.devices.filter(x=>x.id!==d.id);
@@ -702,6 +723,7 @@ function renderEditor(){
   };
 }
 
+// Ping通信の送信元PCと宛先PCを選ぶプルダウンメニューを更新する関数
 function updateSelectors(){
   const srcSelect = $('#srcPc');
   const dstSelect = $('#dstPc');
@@ -737,6 +759,7 @@ function updateSelectors(){
   }
 }
 
+// 現在のネットワーク構成をもとに、画面上の右の3種類の表・情報欄を更新する関数
 function renderTables(){
   const pcs = state.devices.filter(d=>d.type==='pc').sort((a,b)=>a.name.localeCompare(b.name));
 
@@ -758,7 +781,7 @@ function renderTables(){
 
   $('#routeTable').textContent = makeRouteTable();
 }
-
+// 現在選ばれているルーティングプロトコルに応じて、画面に表示する経路表の文字列を作る関数（要変更？）
 function makeRouteTable(){
   if(state.protocol==='OFF'){
     return 'Routing Protocol: OFF\nR1/R2間の経路交換なし\n→ 遠隔サイトへの経路がありません。';
@@ -777,7 +800,7 @@ ${mark} 192.168.30.0/24 via 10.0.0.1
 ${mark} 192.168.40.0/24 via 10.0.0.1`;
 }
 
-// L2通信できるか(VLANを考慮しながら通信可能か)を調べる関数
+// 指定した2台の機器が、同じVLANを使ってL2通信できる経路で接続されているかを調べる関数
 // ケーブルがあるか→VLANが一致しているか→目的地まで行けるか
 function l2Reachable(startId, endId, vlan, visited=new Set()){
   if(startId===endId) return true;
@@ -800,6 +823,7 @@ function l2Reachable(startId, endId, vlan, visited=new Set()){
   return false;
 }
 
+// L2通信に失敗したとき、その原因がL1なのかL2なのかを簡易的に推定する関数
 function findL2Problem(src,dst,vlan){
   const allLinks = state.links.filter(l=>l.a===src.id||l.b===src.id||l.a===dst.id||l.b===dst.id);
 
@@ -813,11 +837,12 @@ function findL2Problem(src,dst,vlan){
   };
 }
 
+// ルーティング機能が現在利用できる状態かどうかを判定する関数
 function routeReachable(){
   return state.protocol !== 'OFF' && state.devices.filter(d=>d.type==='router').every(r=>r.routes!==false);
 }
 
-//ping通信の判定
+//ping通信の判定(主要部分)
 //コードの流れ：IP設定されている？→同じネットワーク？→VLANは正しい？→Gatewayは正しい？→
 //→Routerまで届く？→R1-R2間は接続されている？→Routingできる？→通信成功
 function validatePing(src,dst){
@@ -928,7 +953,7 @@ function validatePing(src,dst){
   };
 }
 
-// 通信経路を探す
+// 通信経路を探す関数
 function pathBetween(s,t,vlan){
   const queue = [[s,[s]]];
   const visited = new Set([s]);
@@ -956,7 +981,7 @@ function pathBetween(s,t,vlan){
 
   return [];
 }
-
+// 指定した2台の機器を直接つないでいる、現在使用可能なリンクを探す関数
 function linkBetween(aId,bId){
   return state.links.find(l=>
     !l.down &&
@@ -967,7 +992,7 @@ function linkBetween(aId,bId){
   );
 }
 
-// パケットアニメーション
+// パケットアニメーション------------------------------------
 async function animatePath(ids){
   if(!ids || ids.length<2) return;
 
@@ -1047,6 +1072,7 @@ async function runPing(){
     box.innerHTML = `<b>Ping失敗</b><br>${src?.name||''} → ${dst?.name||''}<br><b>推定原因: ${r.layer}</b><br>${r.reason}`;
   }
 }
+// ----------------------------------------------------------------------
 
 // JSON出力
 function exportJson(){
@@ -1172,7 +1198,7 @@ workspace.addEventListener('dragleave', event => {
 });
 
 
-// workspaceへ機器をドロップしたとき
+// workspaceへ機器をドロップしたとき(機器の追加など)
 workspace.addEventListener('drop', event => {
   event.preventDefault();
   event.stopPropagation();
@@ -1256,40 +1282,45 @@ loadSample();
 applyViewTransform();
 
 // 全体の流れ
-// ページ起動
-//       │
-//       ▼
+// ページを開く
+//     │
+//     ▼
 // loadSample()
-//       │
-//       ▼
-// Router・Switch・PCを作成
-//       │
-//       ▼
+//     │
+//     ▼
+// stateにサンプルネットワークを作成
+//     │
+//     ▼
 // render()
-//       │
-//       ▼
-// 画面表示
-//       │
-//       ▼
-// ユーザーが編集
-//       │
-//       ▼
+//     │
+//     ▼
+// 画面にRouter・Switch・PCを描画
+//     │
+//     ▼
+// ユーザー操作
+// (追加・削除・移動・設定変更・配線)
+//     │
+//     ▼
 // stateを更新
-//       │
-//       ▼
+//     │
+//     ▼
 // render()
-//       │
-//       ▼
-// Ping実行
-//       │
-//       ▼
+//     │
+//     ▼
+// Pingボタン
+//     │
+//     ▼
+// runPing()
+//     │
+//     ▼
 // validatePing()
-//       │
-//       ├── L1確認
-//       ├── L2確認
-//       ├── L3確認
-//       └── Routing確認
-//       │
-//       ▼
-// 成功ならパケットアニメーション
-// 失敗なら原因を表示
+//     │
+//     ├─L1確認
+//     ├─L2確認
+//     ├─L3確認
+//     ├─Routing確認
+//     └─経路生成
+//     │
+//     ▼
+// 成功ならアニメーション
+// 失敗なら原因表示
