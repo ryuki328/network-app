@@ -755,8 +755,6 @@ function renderTables(){
     <thead><tr><th>接続</th><th>種類</th><th>範囲</th><th>状態</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
-
-  $('#routeTable').textContent = makeRouteTable();
 }
 
 function makeRouteTable(){
