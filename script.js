@@ -778,8 +778,6 @@ function renderTables(){
     <thead><tr><th>接続</th><th>種類</th><th>範囲</th><th>状態</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
-
-  $('#routeTable').textContent = makeRouteTable();
 }
 // 現在選ばれているルーティングプロトコルに応じて、画面に表示する経路表の文字列を作る関数（要変更？）
 function makeRouteTable(){
